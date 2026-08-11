@@ -1,0 +1,40 @@
+# Render Blueprint — https://render.com/docs/blueprint-spec
+# Deploys the Exit Guard API from this repo (rootDirectory: exit-guard).
+services:
+  - type: web
+    name: exit-guard
+    runtime: node
+    plan: free
+    region: oregon
+    rootDir: exit-guard
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      - key: HOST
+        value: "0.0.0.0"
+      - key: BASE_RPC_URL
+        value: https://base.publicnode.com
+      - key: X402_ENABLED
+        value: "true"
+      - key: X402_CALL_PRICE_USDC
+        value: "0.02"
+      - key: X402_FACILITATOR_URL
+        value: https://facilitator.payai.network
+      - key: DEFAULT_FEE_BPS
+        value: "30"
+      - key: DEFAULT_SLIPPAGE_BPS
+        value: "300"
+      # Set these as secret values in the Render dashboard (or CLI) — do not commit secrets
+      - key: KEEPERHUB_API_KEY
+        sync: false
+      - key: KEEPERHUB_WALLET_ADDRESS
+        sync: false
+      - key: EXECUTOR_ADDRESS
+        sync: false
+      - key: X402_PAY_TO
+        sync: false
+      - key: KEEPERHUB_BASE_URL
+        value: https://app.keeperhub.com
