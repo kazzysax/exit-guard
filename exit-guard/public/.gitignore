@@ -1,0 +1,3 @@
+# Local tooling leftovers — site is static and hosted on Render
+.vercel
+.vercel/

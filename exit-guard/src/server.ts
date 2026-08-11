@@ -1,3 +1,5 @@
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import express from "express";
 import { getAddress, isAddress } from "viem";
 import { config, BASE } from "./config.js";
@@ -10,6 +12,10 @@ import { keeperhub } from "./keeperhub.js";
 
 const app = express();
 app.use(express.json());
+
+// Marketing UI + /docs (same origin as API so https://exit-guard.onrender.com/ works)
+const publicDir = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "public");
+app.use(express.static(publicDir, { index: "index.html", extensions: ["html"] }));
 
 const bad = (res: express.Response, msg: string) => res.status(400).json({ error: msg });
 
@@ -153,6 +159,23 @@ app.get("/v1/receipts", (req, res) => {
   const raw = req.query.positionId;
   const positionId = typeof raw === "string" ? raw : undefined;
   res.json({ receipts: store.listReceipts(positionId) });
+});
+
+// SPA-ish fallback: /docs and bare paths that are not API/health/ping
+app.use((req, res, next) => {
+  if (req.method !== "GET" && req.method !== "HEAD") return next();
+  if (req.path.startsWith("/v1") || req.path === "/health" || req.path === "/ping") {
+    return next();
+  }
+  // Prefer docs index for /docs without trailing slash
+  if (req.path === "/docs") {
+    return res.sendFile(path.join(publicDir, "docs", "index.html"), (err) => {
+      if (err) next();
+    });
+  }
+  res.sendFile(path.join(publicDir, "index.html"), (err) => {
+    if (err) next();
+  });
 });
 
 export function startServer() {
