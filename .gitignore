@@ -15,9 +15,12 @@ dist/
 # contract build output (regenerate with npm run compile)
 exit-guard/artifacts/
 
-# OS / editor
+# OS / editor / agent leftovers
 .DS_Store
 Thumbs.db
 *.log
 .idea/
 .vscode/
+.claude
+.claude/
+**/.claude

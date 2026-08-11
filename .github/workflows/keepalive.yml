@@ -1,0 +1,31 @@
+# External 1-minute pings so the free Render service does not stay cold.
+# (Render free cron jobs require a paid plan; GitHub Actions is free for public repos.)
+name: Render keep-alive
+
+on:
+  schedule:
+    # Every minute — GitHub may coalesce slightly under load, but this is the max frequency.
+    - cron: "* * * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: exit-guard-keepalive
+  cancel-in-progress: true
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Ping Exit Guard /ping
+        run: |
+          set -euo pipefail
+          URL="${KEEPALIVE_URL:-https://exit-guard.onrender.com/ping}"
+          echo "GET $URL"
+          curl -fsS --retry 3 --retry-delay 2 --max-time 45 \
+            -H "user-agent: exit-guard-github-keepalive/1" \
+            "$URL"
+          echo
+          echo "ok $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+        env:
+          KEEPALIVE_URL: ${{ vars.KEEPALIVE_URL }}

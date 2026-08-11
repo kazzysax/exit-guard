@@ -13,6 +13,11 @@ app.use(express.json());
 
 const bad = (res: express.Response, msg: string) => res.status(400).json({ error: msg });
 
+/** Lightweight liveness for keep-alive pings (no KeeperHub call). */
+app.get("/ping", (_req, res) => {
+  res.status(200).json({ ok: true, ts: Date.now() });
+});
+
 app.get("/health", async (_req, res) => {
   const x402 = {
     enabled: config.x402Enabled,

@@ -83,7 +83,10 @@ See [`exit-guard/DEPLOYMENT.md`](exit-guard/DEPLOYMENT.md) for contract deploy +
 curl https://exit-guard.onrender.com/health
 ```
 
-> Free Render services **spin down** after idle traffic. First request after idle can take ~30–60s.
+> Free Render services can spin down when idle. This deploy keeps warm with:
+> - `GET /ping` — cheap liveness probe (no KeeperHub call)  
+> - **In-process** keep-alive every **60s** (`KEEPALIVE_URL` / `KEEPALIVE_INTERVAL_MS`)  
+> - **GitHub Action** [`.github/workflows/keepalive.yml`](.github/workflows/keepalive.yml) — external **1-minute** pings (Render free cron requires a paid plan)
 
 ## Deploy (Render)
 
@@ -110,4 +113,4 @@ Blueprint: [`render.yaml`](render.yaml) at repo root.
 
 ## License
 
-ISC
+[MIT](LICENSE) © 2026 kazzysax

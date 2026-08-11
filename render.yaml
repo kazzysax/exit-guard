@@ -1,5 +1,5 @@
 # Render Blueprint — https://render.com/docs/blueprint-spec
-# Deploys the Exit Guard API from this repo (rootDirectory: exit-guard).
+# Deploys the Exit Guard API. Keep-alive: in-process 60s pings + GitHub Action (see .github/workflows).
 services:
   - type: web
     name: exit-guard
@@ -9,7 +9,7 @@ services:
     rootDir: exit-guard
     buildCommand: npm ci && npm run build
     startCommand: npm start
-    healthCheckPath: /health
+    healthCheckPath: /ping
     envVars:
       - key: NODE_VERSION
         value: "20"
@@ -27,6 +27,10 @@ services:
         value: "30"
       - key: DEFAULT_SLIPPAGE_BPS
         value: "300"
+      - key: KEEPALIVE_URL
+        value: https://exit-guard.onrender.com/ping
+      - key: KEEPALIVE_INTERVAL_MS
+        value: "60000"
       # Set these as secret values in the Render dashboard (or CLI) — do not commit secrets
       - key: KEEPERHUB_API_KEY
         sync: false
