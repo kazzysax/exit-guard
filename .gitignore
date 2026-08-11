@@ -1,0 +1,23 @@
+# dependencies
+node_modules/
+**/node_modules/
+
+# build
+dist/
+**/dist/
+
+# secrets — never commit
+.env
+**/.env
+.env.*
+!**/.env.example
+
+# contract build output (regenerate with npm run compile)
+exit-guard/artifacts/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.log
+.idea/
+.vscode/

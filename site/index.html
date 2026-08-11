@@ -1,0 +1,588 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Exit Guard — the exit layer for onchain agents</title>
+<meta name="description" content="Exit Guard is a service trading agents call to exit a position safely. It reads live pool price, simulates before signing, and lands the swap through KeeperHub — non-custodial, one atomic transaction." />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%2314140f'/%3E%3Cpath d='M10 9h8v3h-5v3h4v3h-4v3h5v3h-8z' fill='%23f6f4ee'/%3E%3Cpath d='M21 12l4 4-4 4' stroke='%23c0512f' stroke-width='2' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
+<style>
+  :root{
+    --bg:#f6f4ee;
+    --dot:rgba(20,20,15,.10);
+    --ink:#14140f;
+    --ink-soft:#4b4838;
+    --ink-faint:#8a8672;
+    --card:#fffdf8;
+    --border:#e3ddc9;
+    --accent:#c0512f;
+    --accent-soft:#f1e4d8;
+    --mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    --shadow: 3px 3px 0 rgba(20,20,15,0.9);
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0;
+    background-color:var(--bg);
+    background-image: radial-gradient(var(--dot) 1px, transparent 1px);
+    background-size: 22px 22px;
+    color:var(--ink);
+    font-family:var(--sans);
+    line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+  }
+  a{color:inherit;}
+  img{max-width:100%;}
+  .wrap{max-width:1180px; margin:0 auto; padding:0 28px;}
+
+  /* ---------- nav ---------- */
+  header.nav{
+    position:sticky; top:0; z-index:50;
+    background:rgba(246,244,238,0.92);
+    backdrop-filter: blur(6px);
+    border-bottom:1px solid var(--border);
+  }
+  .nav-inner{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:16px 28px;
+    max-width:1180px; margin:0 auto;
+    gap:16px;
+  }
+  .nav-links{display:flex; gap:26px; font-size:14px;}
+  .nav-links a{text-decoration:none; color:var(--ink-soft); transition:color .15s;}
+  .nav-links a:hover{color:var(--accent);}
+  .brand{display:flex; align-items:center; gap:9px; font-weight:700; letter-spacing:.02em; font-size:17px; white-space:nowrap;}
+  .brand-mark{
+    width:24px; height:24px; border-radius:6px; background:var(--ink);
+    display:flex; align-items:center; justify-content:center; flex-shrink:0;
+  }
+  .brand-mark svg{width:14px; height:14px;}
+  .nav-right{display:flex; align-items:center; gap:18px;}
+  .nav-right .ghost-link{font-size:14px; color:var(--ink-soft); text-decoration:none;}
+  .btn{
+    font-family:var(--mono); font-size:13px; font-weight:600;
+    background:var(--card); color:var(--ink);
+    border:1.5px solid var(--ink);
+    padding:9px 16px; border-radius:5px;
+    text-decoration:none; display:inline-block;
+    box-shadow:var(--shadow);
+    transition:transform .12s, box-shadow .12s;
+    cursor:pointer;
+  }
+  .btn:hover{transform:translate(-1px,-1px); box-shadow:4px 4px 0 rgba(20,20,15,0.9);}
+  .btn:active{transform:translate(1px,1px); box-shadow:1px 1px 0 rgba(20,20,15,0.9);}
+  .btn-solid{background:var(--ink); color:var(--bg);}
+  .navbtn{padding:8px 14px; font-size:12.5px;}
+  @media (max-width:760px){
+    .nav-links{display:none;}
+  }
+
+  /* ---------- section scaffolding ---------- */
+  section{padding:88px 0;}
+  section.tight{padding:56px 0;}
+  .tag{
+    font-family:var(--mono); font-size:12.5px; letter-spacing:.14em;
+    color:var(--accent); text-transform:uppercase; margin:0 0 18px;
+    display:flex; align-items:center; gap:8px;
+  }
+  .tag .bracket{color:var(--ink-faint);}
+  h1,h2,h3{font-family:var(--sans); font-weight:800; letter-spacing:-0.02em; margin:0 0 18px; color:var(--ink);}
+  h1{font-size:clamp(34px,5.4vw,56px); line-height:1.06;}
+  h2{font-size:clamp(26px,3.6vw,38px); line-height:1.12;}
+  p{color:var(--ink-soft); margin:0 0 16px; font-size:16px;}
+  p.lead{font-size:18px; max-width:640px;}
+  .grid-2{
+    display:grid; grid-template-columns:1fr 1fr; gap:56px; align-items:center;
+  }
+  @media (max-width:900px){
+    .grid-2{grid-template-columns:1fr; gap:36px;}
+    .grid-2 .order-swap{order:2;}
+  }
+
+  /* ---------- code cards ---------- */
+  .card{
+    background:var(--card); border:1px solid var(--border); border-radius:8px;
+    box-shadow:var(--shadow);
+    overflow:hidden;
+  }
+  .card-head{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:10px 16px; border-bottom:1px solid var(--border);
+    font-family:var(--mono); font-size:12.5px; color:var(--ink-faint);
+  }
+  .card-head .dots{display:flex; gap:5px;}
+  .card-head .dots span{width:8px; height:8px; border-radius:50%; background:var(--border);}
+  pre{
+    margin:0; padding:18px 20px; overflow-x:auto;
+    font-family:var(--mono); font-size:13px; line-height:1.65; color:var(--ink);
+  }
+  code{font-family:var(--mono);}
+  .tok-key{color:#7a6b1e;}
+  .tok-str{color:#2c6e49;}
+  .tok-num{color:#1c5d9e;}
+  .tok-comment{color:var(--ink-faint); font-style:italic;}
+  .tok-del{color:#b23a3a;}
+  .tok-add{color:#2c6e49;}
+  .tok-kw{color:var(--accent);}
+
+  .field-note{
+    border-left:3px solid var(--accent);
+    padding:10px 16px; margin-top:18px;
+    font-family:var(--mono); font-size:12.5px; color:var(--ink-soft);
+    background:var(--accent-soft);
+    border-radius:0 6px 6px 0;
+  }
+  .field-note b{color:var(--ink);}
+
+  /* ---------- hero ---------- */
+  .hero{padding-top:76px;}
+  .hero-actions{display:flex; gap:14px; margin-top:30px; flex-wrap:wrap;}
+  .hero-note{margin-top:26px; font-family:var(--mono); font-size:12.5px; color:var(--ink-faint);}
+
+  /* ---------- diagram ---------- */
+  .diagram pre{font-size:12px; line-height:1.55;}
+  @media (max-width:600px){ .diagram pre{font-size:10.5px;} }
+
+  /* ---------- connect steps ---------- */
+  .steps{
+    display:grid; grid-template-columns:repeat(2,1fr); gap:26px; margin-top:40px;
+  }
+  @media (max-width:900px){ .steps{grid-template-columns:1fr;} }
+  .step{
+    background:var(--card); border:1px solid var(--border); border-radius:8px;
+    box-shadow:var(--shadow); padding:0; overflow:hidden;
+  }
+  .step-top{
+    display:flex; align-items:center; gap:12px;
+    padding:16px 18px; border-bottom:1px solid var(--border);
+  }
+  .step-num{
+    font-family:var(--mono); font-weight:700; font-size:13px;
+    width:26px; height:26px; border-radius:50%;
+    background:var(--ink); color:var(--bg);
+    display:flex; align-items:center; justify-content:center; flex-shrink:0;
+  }
+  .step-top h3{margin:0; font-size:16px; font-weight:700;}
+  .step p.sub{margin:0; padding:0 18px; padding-top:14px; font-size:13.5px;}
+  .step pre{font-size:12.3px; padding:14px 18px;}
+
+  /* ---------- table ---------- */
+  .tbl-wrap{overflow-x:auto; margin-top:32px;}
+  table{width:100%; border-collapse:collapse; font-size:14.5px; min-width:640px;}
+  th,td{text-align:left; padding:13px 16px; border-bottom:1px solid var(--border);}
+  th{font-family:var(--mono); font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-faint); font-weight:600;}
+  td{color:var(--ink-soft);}
+  td.mono, th.mono{font-family:var(--mono); font-size:13px; color:var(--ink);}
+  .pill{
+    font-family:var(--mono); font-size:11.5px; padding:3px 9px; border-radius:20px;
+    border:1px solid var(--border); white-space:nowrap; display:inline-block;
+  }
+  .pill.free{color:#2c6e49; border-color:#bcd9c6; background:#eef6f0;}
+  .pill.paid{color:var(--accent); border-color:#e6c3af; background:var(--accent-soft);}
+
+  /* ---------- trust grid ---------- */
+  .trust-grid{
+    display:grid; grid-template-columns:repeat(3,1fr); gap:1px;
+    background:var(--border); border:1px solid var(--border); border-radius:8px;
+    overflow:hidden; margin-top:40px;
+  }
+  @media (max-width:860px){ .trust-grid{grid-template-columns:repeat(2,1fr);} }
+  @media (max-width:560px){ .trust-grid{grid-template-columns:1fr;} }
+  .trust-item{background:var(--card); padding:22px;}
+  .trust-item h4{margin:0 0 8px; font-size:14.5px; font-family:var(--mono); color:var(--ink);}
+  .trust-item p{margin:0; font-size:13.5px;}
+
+  /* ---------- divider ---------- */
+  .divider{border:none; border-top:1px solid var(--border); margin:0;}
+
+  /* ---------- footer ---------- */
+  footer{padding:52px 0 60px;}
+  .footer-top{display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:24px;}
+  .footer-cols{display:flex; gap:56px; flex-wrap:wrap;}
+  .footer-col h5{font-family:var(--mono); font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-faint); margin:0 0 12px;}
+  .footer-col a{display:block; font-size:14px; color:var(--ink-soft); text-decoration:none; margin-bottom:8px;}
+  .footer-col a:hover{color:var(--accent);}
+  .footer-bottom{margin-top:40px; font-size:12.5px; color:var(--ink-faint); font-family:var(--mono); display:flex; justify-content:space-between; flex-wrap:wrap; gap:10px;}
+
+  ::selection{background:var(--accent); color:#fff;}
+</style>
+</head>
+<body>
+
+<header class="nav">
+  <div class="nav-inner">
+    <nav class="nav-links">
+      <a href="#how-it-works">How it works</a>
+      <a href="#connect">Connect</a>
+      <a href="#api">API</a>
+    </nav>
+    <a href="#top" class="brand">
+      <span class="brand-mark">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M9 6h9v3h-6v3h5v3h-5v3h6v3H9z" fill="#f6f4ee"/><path d="M16 10l3 3-3 3" stroke="#c0512f" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </span>
+      EXIT GUARD
+    </a>
+    <div class="nav-right">
+      <a class="ghost-link" href="#failure-handling">Failure handling</a>
+      <a class="btn navbtn" href="#connect">Get started</a>
+    </div>
+  </div>
+</header>
+
+<main id="top">
+
+  <!-- ================= HERO ================= -->
+  <section class="hero">
+    <div class="wrap grid-2">
+      <div>
+        <p class="tag"><span class="bracket">◄</span> EXIT GUARD <span class="bracket">►</span></p>
+        <h1>The exit layer for<br>onchain agents.</h1>
+        <p class="lead">Every trading agent has an entry. Almost none has a safe exit. Give Exit Guard a
+        position and a rule — it reads live pool price, simulates before signing, and lands the swap
+        through KeeperHub with managed retries, smart gas, and private routing. Proceeds return to the
+        caller in the <b style="color:var(--ink)">same transaction</b>. We never hold funds at rest.</p>
+        <div class="hero-actions">
+          <a class="btn btn-solid" href="#connect">Connect your agent</a>
+          <a class="btn" href="#how-it-works">See how it works</a>
+        </div>
+        <p class="hero-note">Base + Uniswap V3 · executing through KeeperHub · non-custodial by construction</p>
+      </div>
+      <div class="card">
+        <div class="card-head">
+          <span>POST /v1/positions/:id/exit</span>
+          <span class="dots"><span></span><span></span><span></span></span>
+        </div>
+        <pre><code><span class="tok-comment"># stop breached — simulate, then land it</span>
+curl -X POST $HOST/v1/positions/pos_7f2c/exit
+
+<span class="tok-comment">// 200 OK</span>
+{
+  <span class="tok-key">"receipt"</span>: {
+    <span class="tok-key">"outcome"</span>: <span class="tok-str">"executed"</span>,
+    <span class="tok-key">"tier"</span>: <span class="tok-str">"fast"</span>,
+    <span class="tok-key">"quotedOut"</span>: <span class="tok-str">"1189000000000000000"</span>,
+    <span class="tok-key">"actualOut"</span>: <span class="tok-str">"1186420000000000000"</span>,
+    <span class="tok-key">"realisedSlippageBps"</span>: <span class="tok-num">21</span>,
+    <span class="tok-key">"feeAmount"</span>: <span class="tok-str">"3559260000000000"</span>,
+    <span class="tok-key">"ownerAmount"</span>: <span class="tok-str">"1182860740000000000"</span>,
+    <span class="tok-key">"transactionHash"</span>: <span class="tok-str">"0x8f2e…"</span>
+  }
+}</code></pre>
+      </div>
+    </div>
+  </section>
+
+  <hr class="divider" />
+
+  <!-- ================= ARCHITECTURE ================= -->
+  <section id="how-it-works">
+    <div class="wrap">
+      <p class="tag"><span class="bracket">◄</span> ARCHITECTURE <span class="bracket">►</span></p>
+      <h2>Pull, swap, split, return.<br>One call, one revert-as-a-unit.</h2>
+      <p class="lead">The executor contract is what makes this non-custodial. Between the agent's wallet
+      and the agent's wallet, the position exists only inside a single transaction — there is no
+      intermediate state where Exit Guard, or anyone else, is holding the funds.</p>
+
+      <div class="card diagram" style="margin-top:36px;">
+        <div class="card-head">
+          <span>request flow</span>
+          <span class="dots"><span></span><span></span><span></span></span>
+        </div>
+        <pre><code>Trading agent            Exit Guard service              KeeperHub              Base
+─────────────            ──────────────────              ─────────              ────
+  decides         ──▶    POST /v1/positions/:id/exit
+                          │
+                          ├─ evaluate()      ─────────────────────────────▶  slot0, balanceOf,
+                          │                                                   allowance, quote
+                          ├─ router.decideTier()
+                          │    fast │ guarded
+                          │
+                          ├─ simulate: true  ──────────▶  execute_contract_call
+                          │                                (wouldRevert?)
+                          │
+                          └─ execute         ──────────▶  execute_contract_call ──▶ ExitGuardExecutor
+                                                            + idempotency_key         .exit()
+                                                                                       │
+                                                                                       ├─ transferFrom(owner)
+                                                                                       ├─ exactInputSingle
+                                                                                       ├─ fee → treasury
+                                                                                       └─ remainder → owner</code></pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= EVALUATE ================= -->
+  <section class="tight">
+    <div class="wrap grid-2">
+      <div>
+        <p class="tag"><span class="bracket">◄</span> EVALUATE <span class="bracket">►</span></p>
+        <h2>Check the rule before anyone pays for it.</h2>
+        <p>Evaluate reads live pool price, converts it against your stop/target thresholds, and confirms
+        the position is actually claimable — enrolled, funded, approved. It never touches KeeperHub and
+        it's never charged, so an agent can poll it as often as it wants.</p>
+        <div class="field-note"><b>field note:</b> one real bug this caught in testing — the first
+        version of the token1 price-inversion logic swapped the stop/target slots but forgot to
+        reciprocate the price, silently turning a stop-loss into a take-profit. Fixed, with four
+        assertions now pinned to that exact branch.</div>
+      </div>
+      <div class="card">
+        <div class="card-head">
+          <span>POST /v1/positions/:id/evaluate</span>
+          <span class="dots"><span></span><span></span><span></span></span>
+        </div>
+        <pre><code><span class="tok-comment">// free — never charged</span>
+{
+  <span class="tok-key">"action"</span>: <span class="tok-str">"hold"</span>,
+  <span class="tok-key">"reason"</span>: <span class="tok-str">"price within bounds"</span>,
+  <span class="tok-key">"sqrtPriceX96"</span>: <span class="tok-str">"5341..."</span>,
+  <span class="tok-key">"humanPrice"</span>: <span class="tok-num">1842.07</span>,
+  <span class="tok-key">"claimable"</span>: <span class="tok-str">"1200000000000000000"</span>
+}</code></pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= ROUTE ================= -->
+  <section class="tight">
+    <div class="wrap grid-2">
+      <div class="card order-swap">
+        <div class="card-head">
+          <span>router.ts — weighted scoring</span>
+          <span class="dots"><span></span><span></span><span></span></span>
+        </div>
+        <pre><code><span class="tok-comment">[router] position=pos_7f2c tier=guarded score=16</span>
+
+<span class="tok-kw">large_notional</span>:   1.00 WETH above 0.25
+                extraction scales with size
+<span class="tok-kw">basefee_spike</span>:    0.31 gwei above 0.05 ceiling
+<span class="tok-kw">slippage_alert</span>:   realised 187bps last exit
+<span class="tok-kw">repeat_failure</span>:   2 consecutive failures
+<span class="tok-kw">low_liquidity</span>:    position is 4.2% of pool</code></pre>
+      </div>
+      <div>
+        <p class="tag"><span class="bracket">◄</span> ROUTE <span class="bracket">►</span></p>
+        <h2>Tier scoring, never a vibe.</h2>
+        <p>Every exit is scored against weighted rules — notional size, base fee, realised slippage
+        history, consecutive failures, pool depth — and routed to a <b style="color:var(--ink)">fast</b>
+        or <b style="color:var(--ink)">guarded</b> tier with a logged explanation for the call. Calm
+        conditions land fast; anything that smells like a gas spike or a sandwich escalates
+        automatically to private routing and tighter retries.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= EXECUTE ================= -->
+  <section class="tight">
+    <div class="wrap grid-2">
+      <div>
+        <p class="tag"><span class="bracket">◄</span> EXECUTE <span class="bracket">►</span></p>
+        <h2>Simulate first. Always.</h2>
+        <p>A revert caught in simulation costs nothing; a revert caught onchain costs gas and leaves the
+        position exposed. Exit Guard runs <code style="background:var(--accent-soft); padding:1px 6px; border-radius:4px;">simulate: true</code>
+        through KeeperHub before anything is signed, and only proceeds if the call would succeed. Retries
+        after a timeout are keyed by <code style="background:var(--accent-soft); padding:1px 6px; border-radius:4px;">position + price</code>,
+        so a replay can never double-sell.</p>
+      </div>
+      <div class="card">
+        <div class="card-head">
+          <span>ExitGuardExecutor.sol</span>
+          <span class="dots"><span></span><span></span><span></span></span>
+        </div>
+        <pre><code><span class="tok-comment">/// keeper-gated, owner opt-in, 1% fee ceiling, reentrancy guard</span>
+<span class="tok-kw">function</span> exit(
+    <span class="tok-kw">address</span> owner,
+    <span class="tok-kw">address</span> token,
+    <span class="tok-kw">uint24</span>  poolFee,
+    <span class="tok-kw">uint256</span> amountIn,
+    <span class="tok-kw">uint256</span> amountOutMinimum,
+    <span class="tok-kw">uint16</span>  feeBps
+) <span class="tok-kw">external</span> onlyKeeper nonReentrant returns (<span class="tok-kw">uint256</span>) {
+    require(enrolled[owner], <span class="tok-str">"not enrolled"</span>);
+    token.transferFrom(owner, address(this), amountIn);
+    <span class="tok-kw">uint256</span> out = swapRouter.exactInputSingle(...);
+    <span class="tok-kw">uint256</span> fee = out * feeBps / 10_000;
+    weth.transfer(treasury, fee);
+    weth.transfer(owner, out - fee);
+}</code></pre>
+      </div>
+    </div>
+  </section>
+
+  <hr class="divider" />
+
+  <!-- ================= CONNECT ================= -->
+  <section id="connect">
+    <div class="wrap">
+      <p class="tag"><span class="bracket">◄</span> CONNECT <span class="bracket">►</span></p>
+      <h2>Wire it into your trading terminal.</h2>
+      <p class="lead">Two onchain transactions from your agent's own wallet, once. Then it's four HTTP
+      calls — register, evaluate as often as you like for free, exit when your rule breaches. Drop these
+      straight into whatever is already deciding entries.</p>
+
+      <div class="steps">
+        <div class="step">
+          <div class="step-top"><span class="step-num">1</span><h3>Enroll &amp; approve</h3></div>
+          <p class="sub">From the wallet that actually holds the position — not a hot key you don't
+          trust. Exact size, never max.</p>
+          <pre><code>executor.setEnrolled(<span class="tok-kw">true</span>);
+token.approve(executorAddress, positionSize);</code></pre>
+        </div>
+
+        <div class="step">
+          <div class="step-top"><span class="step-num">2</span><h3>Register the position</h3></div>
+          <p class="sub">Free. Returns computed sqrtPriceX96 thresholds and a readiness block telling you
+          if step 1 is complete.</p>
+          <pre><code>curl -X POST $HOST/v1/positions \
+  -d <span class="tok-str">'{"owner":"0xYourAgent",</span>
+<span class="tok-str">      "token":"0xTokenAddress",</span>
+<span class="tok-str">      "stopPrice":0.001,</span>
+<span class="tok-str">      "feeTier":10000}'</span></code></pre>
+        </div>
+
+        <div class="step">
+          <div class="step-top"><span class="step-num">3</span><h3>Evaluate on your loop</h3></div>
+          <p class="sub">Free, always. Poll it from the same loop that already watches your entries —
+          no rate limit tied to spend.</p>
+          <pre><code>curl -X POST \
+  $HOST/v1/positions/pos_7f2c/evaluate</code></pre>
+        </div>
+
+        <div class="step">
+          <div class="step-top"><span class="step-num">4</span><h3>Exit when it breaches</h3></div>
+          <p class="sub">Simulated first, then landed through KeeperHub. Proceeds return to your wallet
+          in the same transaction.</p>
+          <pre><code>curl -X POST \
+  $HOST/v1/positions/pos_7f2c/exit</code></pre>
+        </div>
+      </div>
+
+      <div class="field-note" style="margin-top:32px;">
+        <b>Either can be revoked unilaterally, any time.</b> An allowance without enrolment does nothing —
+        authorisation is deliberately two-factor. Revoke the approval, call <code>setEnrolled(false)</code>,
+        or both — Exit Guard loses the ability to touch the position instantly.
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= API TABLE ================= -->
+  <section id="api" class="tight">
+    <div class="wrap">
+      <p class="tag"><span class="bracket">◄</span> API <span class="bracket">►</span></p>
+      <h2>Five endpoints. That's the whole surface.</h2>
+      <div class="tbl-wrap">
+        <table>
+          <thead>
+            <tr><th class="mono">Endpoint</th><th>Cost</th><th>Purpose</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="mono">POST /v1/positions</td>
+              <td><span class="pill free">free</span></td>
+              <td>Register a position, get computed thresholds back</td>
+            </tr>
+            <tr>
+              <td class="mono">POST /v1/positions/:id/evaluate</td>
+              <td><span class="pill free">free</span></td>
+              <td>Check the rule. Never charged.</td>
+            </tr>
+            <tr>
+              <td class="mono">POST /v1/positions/:id/exit</td>
+              <td><span class="pill paid">x402</span></td>
+              <td>Evaluate and execute if the rule is breached</td>
+            </tr>
+            <tr>
+              <td class="mono">GET /v1/receipts</td>
+              <td><span class="pill free">free</span></td>
+              <td>Audit trail</td>
+            </tr>
+            <tr>
+              <td class="mono">GET /health</td>
+              <td><span class="pill free">free</span></td>
+              <td>Liveness + KeeperHub spending limits</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p style="margin-top:22px; font-size:14px;">A nominal x402 call fee settles up front on the paid
+      endpoint. The real fee — a few bps of proceeds — is taken <b style="color:var(--ink)">inside the
+      executor contract</b>, which means it cannot be collected unless the swap actually lands. You are
+      never charged for a check that doesn't trade.</p>
+    </div>
+  </section>
+
+  <hr class="divider" />
+
+  <!-- ================= FAILURE HANDLING / TRUST ================= -->
+  <section id="failure-handling">
+    <div class="wrap">
+      <p class="tag"><span class="bracket">◄</span> WHY IT'S SAFE <span class="bracket">►</span></p>
+      <h2>Built for the moment a hot-key transaction fails.</h2>
+      <p class="lead">A crash, a gas spike, a rug — that's exactly when a sell has to land. Here's what
+      handles it.</p>
+
+      <div class="trust-grid">
+        <div class="trust-item">
+          <h4>Honeypot / revert</h4>
+          <p>Caught by <code>simulate: true</code> before anything is signed.</p>
+        </div>
+        <div class="trust-item">
+          <h4>Retry after timeout</h4>
+          <p>Idempotency key derived from position + price — a replay can never double-sell.</p>
+        </div>
+        <div class="trust-item">
+          <h4>KeeperHub cold start</h4>
+          <p>Retried with the documented backoff; connection errors are not retried.</p>
+        </div>
+        <div class="trust-item">
+          <h4>Allowance revoked</h4>
+          <p>Detected in the readiness check, returns a structured reason — not a raw revert.</p>
+        </div>
+        <div class="trust-item">
+          <h4>Gas spike / sandwich</h4>
+          <p>Router escalates to the guarded tier and logs exactly why.</p>
+        </div>
+        <div class="trust-item">
+          <h4>Hung execution</h4>
+          <p>Bounded polling with a hard ceiling — never waits forever on an exit.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="footer-top">
+      <div class="brand" style="font-size:15px;">
+        <span class="brand-mark" style="width:20px;height:20px;">
+          <svg viewBox="0 0 24 24" fill="none" style="width:12px;height:12px;"><path d="M9 6h9v3h-6v3h5v3h-5v3h6v3H9z" fill="#f6f4ee"/><path d="M16 10l3 3-3 3" stroke="#c0512f" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </span>
+        EXIT GUARD
+      </div>
+      <div class="footer-cols">
+        <div class="footer-col">
+          <h5>Product</h5>
+          <a href="#how-it-works">How it works</a>
+          <a href="#connect">Connect</a>
+          <a href="#api">API reference</a>
+        </div>
+        <div class="footer-col">
+          <h5>Built on</h5>
+          <a href="https://base.org" target="_blank" rel="noopener">Base</a>
+          <a href="https://docs.uniswap.org" target="_blank" rel="noopener">Uniswap V3</a>
+          <a href="https://app.keeperhub.com" target="_blank" rel="noopener">KeeperHub</a>
+        </div>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>Exit Guard — non-custodial by construction. Executor is unaudited; small is not the same as audited.</span>
+      <span>Base · chain 8453</span>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
