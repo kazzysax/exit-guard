@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import express from "express";
@@ -13,8 +14,24 @@ import { keeperhub } from "./keeperhub.js";
 const app = express();
 app.use(express.json());
 
-// Marketing UI + /docs (same origin as API so https://exit-guard.onrender.com/ works)
-const publicDir = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "public");
+/**
+ * Marketing UI + /docs on the same host as the API.
+ * Resolve public/ for both `tsx src` (dev) and `node dist/src` (Render).
+ */
+function resolvePublicDir(): string {
+  const here = path.dirname(fileURLToPath(import.meta.url));
+  const candidates = [
+    path.join(process.cwd(), "public"),
+    path.join(here, "..", "public"), // src/ or dist/ next to public/
+    path.join(here, "..", "..", "public"), // dist/src -> ../../public
+  ];
+  for (const dir of candidates) {
+    if (fs.existsSync(path.join(dir, "index.html"))) return dir;
+  }
+  return candidates[0];
+}
+
+const publicDir = resolvePublicDir();
 app.use(express.static(publicDir, { index: "index.html", extensions: ["html"] }));
 
 const bad = (res: express.Response, msg: string) => res.status(400).json({ error: msg });
@@ -183,6 +200,7 @@ export function startServer() {
   const host = process.env.HOST ?? "0.0.0.0";
   app.listen(config.port, host, () => {
     console.log(`Exit Guard listening on ${host}:${config.port}`);
+    console.log(`  public    ${publicDir} (exists=${fs.existsSync(path.join(publicDir, "index.html"))})`);
     console.log(`  executor  ${config.executorAddress}`);
     console.log(`  keeper    ${config.keeperhubWallet}`);
     const active = isX402Active();
