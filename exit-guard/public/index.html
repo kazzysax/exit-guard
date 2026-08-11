@@ -195,25 +195,31 @@
   .trust-item p{margin:0; font-size:13.5px;}
 
   /* ---------- problems solved ---------- */
-  .problem-grid{
-    display:grid; grid-template-columns:repeat(2,1fr); gap:22px; margin-top:40px;
+  .problem-list{margin-top:36px; display:flex; flex-direction:column; gap:18px;}
+  .problem-row{
+    background:var(--card); border:1px solid var(--border); border-radius:8px;
+    box-shadow:var(--shadow); padding:22px 24px 20px;
   }
-  @media (max-width:760px){ .problem-grid{grid-template-columns:1fr;} }
-  .problem-card{
-    background:var(--card); border:1.5px solid var(--ink); border-radius:8px;
-    box-shadow:var(--shadow); padding:22px 22px 20px; display:flex; flex-direction:column; gap:12px;
+  .problem-row h3{
+    margin:0 0 10px; font-size:17px; line-height:1.3; letter-spacing:-.02em;
+    font-family:var(--sans); font-weight:800;
   }
-  .problem-card .label{
-    font-family:var(--mono); font-size:11.5px; letter-spacing:.1em; text-transform:uppercase;
-    color:var(--accent); margin:0;
+  .problem-row p{margin:0 0 10px; font-size:15px; color:var(--ink-soft); max-width:72ch;}
+  .problem-row p:last-child{margin-bottom:0;}
+  .problem-row .fix-line{
+    margin:0; font-family:var(--mono); font-size:12.5px; color:var(--ink);
+    border-left:3px solid var(--accent); padding:8px 0 8px 14px; background:var(--accent-soft);
+    border-radius:0 4px 4px 0;
   }
-  .problem-card h3{margin:0; font-size:18px; line-height:1.25; letter-spacing:-.02em;}
-  .problem-card p{margin:0; font-size:14.5px;}
-  .problem-card .solves{
-    margin-top:auto; padding-top:12px; border-top:1px solid var(--border);
-    font-family:var(--mono); font-size:12.5px; color:var(--ink-soft);
+  .why-grid{
+    display:grid; grid-template-columns:repeat(2,1fr); gap:18px; margin-top:28px;
   }
-  .problem-card .solves b{color:var(--ink);}
+  @media (max-width:800px){ .why-grid{grid-template-columns:1fr;} }
+  .why-card{
+    background:var(--card); border:1px solid var(--border); border-radius:8px; padding:18px 20px;
+  }
+  .why-card h4{margin:0 0 8px; font-family:var(--mono); font-size:13px; color:var(--ink);}
+  .why-card p{margin:0; font-size:14px; color:var(--ink-soft);}
 
   /* ---------- divider ---------- */
   .divider{border:none; border-top:1px solid var(--border); margin:0;}
@@ -236,6 +242,7 @@
   <div class="nav-inner">
     <nav class="nav-links">
       <a href="#problems">Problems solved</a>
+      <a href="#why">Why this way</a>
       <a href="#how-it-works">How it works</a>
       <a href="#connect">Connect</a>
       <a href="#api">API</a>
@@ -303,58 +310,101 @@ curl -X POST $HOST/v1/positions/pos_7f2c/exit
   <!-- ================= PROBLEMS SOLVED ================= -->
   <section id="problems">
     <div class="wrap">
-      <p class="tag"><span class="bracket">◄</span> PROBLEMS SOLVED <span class="bracket">►</span></p>
-      <h2>What breaks without an exit layer — and what Exit Guard fixes.</h2>
-      <p class="lead">Agents are great at entering. The market is worst when they need to leave.
-      These are the concrete failure modes this model is built to remove.</p>
+      <p class="tag"><span class="bracket">◄</span> PROBLEMS EXIT GUARD SOLVES <span class="bracket">►</span></p>
+      <h2>Agents can enter. Almost none can exit safely.</h2>
+      <p class="lead">Every trading agent hackathon produces entry logic — signal detection, buy triggers,
+      position sizing. Almost none produce exit logic. That asymmetry is why retail loses money on memecoins:
+      the decision to buy is made calmly; the decision to sell is made under pressure, badly, or not made
+      at all because nobody built that path. Exit Guard <em>is</em> that path.</p>
 
-      <div class="problem-grid">
-        <div class="problem-card">
-          <p class="label">Problem</p>
-          <h3>No dedicated exit path</h3>
-          <p>Most agent stacks wire entries carefully and leave exits as “just send a swap when it feels bad.”
-          That falls apart under stress: no rule engine, no readiness check, no structured outcome.</p>
-          <p class="solves"><b>Solved by:</b> position + stop/target rules, free evaluate, paid exit only when breached.</p>
+      <div class="problem-list">
+        <div class="problem-row">
+          <h3>The moment you most need a transaction to land is the moment it’s most likely to fail</h3>
+          <p>A crash, a gas spike, a rug in progress — these are exactly the conditions where a hot-key
+          transaction gets stuck on an underpriced nonce, sits in a public mempool, or gets sandwiched.
+          The failure isn’t random; it’s correlated with the exact moments that matter most. A bot that
+          works in calm markets and breaks during the one event it existed to handle isn’t a safety system.</p>
+          <p class="fix-line">Exit Guard lands exits through KeeperHub: managed retries, smart gas, private routing, bounded polling — not a fragile hot key.</p>
         </div>
 
-        <div class="problem-card">
-          <p class="label">Problem</p>
-          <h3>Hot-key sells fail when it matters</h3>
-          <p>Stuck nonces, underpriced gas, public mempool, or a hung wallet process — exactly during a crash
-          or rug — leave the position open while the agent “retries” blindly.</p>
-          <p class="solves"><b>Solved by:</b> KeeperHub execution with smart gas, retries, private routing, and bounded polling.</p>
+        <div class="problem-row">
+          <h3>Simulation before signing is rare, and its absence is expensive</h3>
+          <p>Most bots sign first and find out the trade was a honeypot or a revert after gas is already
+          spent. A predicted revert should cost nothing; an unpredicted one costs gas and leaves the
+          position exposed.</p>
+          <p class="fix-line">Every exit runs <code>simulate: true</code> through KeeperHub before anything is signed. Revert in sim → no signature, no waste.</p>
         </div>
 
-        <div class="problem-card">
-          <p class="label">Problem</p>
-          <h3>Custodial or multi-step fund flows</h3>
-          <p>Bridges that park tokens in a bot wallet, multi-tx “approve then swap then send” flows, or
-          intermediate vaults create windows where funds are at rest and trust is required.</p>
-          <p class="solves"><b>Solved by:</b> atomic pull → Uniswap swap → fee → return in one executor transaction.</p>
+        <div class="problem-row">
+          <h3>Custody and safety are usually a trade-off</h3>
+          <p>The common patterns: give a bot your private key (fast, unsafe), or hand tokens to a custodian
+          (safe from your bot, unsafe from the custodian). Neither is acceptable for agentic infrastructure.</p>
+          <p class="fix-line">Allowance-based pull inside one atomic transaction: transferFrom → Uniswap swap → fee → return. Funds never rest outside the owner’s wallet. Enrol + approve; revoke either unilaterally without our cooperation.</p>
         </div>
 
-        <div class="problem-card">
-          <p class="label">Problem</p>
-          <h3>Paying for checks that never trade</h3>
-          <p>If every price check is a paid API or onchain read-through-write path, agents either overspend
-          or under-monitor. False economy leads to delayed exits.</p>
-          <p class="solves"><b>Solved by:</b> free evaluate forever; x402 only on <code>/exit</code>; onchain fee only if the swap lands.</p>
+        <div class="problem-row">
+          <h3>Retries are dangerous without idempotency</h3>
+          <p>A naive retry-on-timeout can double-sell a position. Network hiccups are normal; double execution
+          is not.</p>
+          <p class="fix-line">Every write carries an idempotency key derived from position + price, so a replay cannot turn one exit into two.</p>
         </div>
 
-        <div class="problem-card">
-          <p class="label">Problem</p>
-          <h3>Double-sells and silent reverts</h3>
-          <p>Timeouts, agent retries, and honeypot tokens create either two sells or a gas-burning revert
-          with no structured reason the agent can act on.</p>
-          <p class="solves"><b>Solved by:</b> simulate-first, idempotency keys, readiness (enrolled/allowance/balance), structured receipts.</p>
+        <div class="problem-row">
+          <h3>“Trust me” isn’t an audit trail</h3>
+          <p>Operators (and eventually judges or insurers) need to verify what happened — not take a
+          screenshot’s word for it. Held, blocked, simulated-and-rejected, executed: each needs a record
+          with reasoning attached.</p>
+          <p class="fix-line">Every evaluation and exit attempt writes a receipt, including the router’s score and reasons — held, blocked, failed, or executed.</p>
         </div>
 
-        <div class="problem-card">
-          <p class="label">Problem</p>
-          <h3>Sandwich / hostile pool conditions</h3>
-          <p>Large notionals, thin liquidity, or spiking base fee turn a “simple” exit into extraction.
-          A single static gas setting does not adapt.</p>
-          <p class="solves"><b>Solved by:</b> weighted router (fast vs guarded) with logged reasons — not vibes.</p>
+        <div class="problem-row">
+          <h3>Not every exit deserves the same execution path</h3>
+          <p>A calm-market exit and a gas-spike, sandwich-risk exit are treated identically by almost
+          everything that exists. Static gas settings don’t adapt to base fee, last slippage, consecutive
+          failures, or position size relative to pool liquidity.</p>
+          <p class="fix-line">Exit Guard scores conditions per trade and routes <b>fast</b> or <b>guarded</b>, logging the score and the reasoning either way.</p>
+        </div>
+
+        <div class="problem-row">
+          <h3>Charging for a check that doesn’t trade is charging for nothing delivered</h3>
+          <p>If evaluation costs money, agents under-monitor. If completion fees are collected before the
+          swap lands, incentives point the wrong way.</p>
+          <p class="fix-line">Evaluate is free. x402 is only on exit. The completion fee is taken inside the executor from proceeds — only if the swap actually lands.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <hr class="divider" />
+
+  <!-- ================= WHY THIS WAY ================= -->
+  <section id="why" class="tight">
+    <div class="wrap">
+      <p class="tag"><span class="bracket">◄</span> WHY WE BUILT IT THIS WAY <span class="bracket">►</span></p>
+      <h2>A service other agents call — not another trading bot.</h2>
+      <p class="lead">The constraint that matters in agentic infrastructure is composability. A trading bot
+      competes with every other bot at a hackathon. An exit primitive is something any of them can plug into —
+      including ones we’ll never write.</p>
+
+      <div class="why-grid">
+        <div class="why-card">
+          <h4>Service, not competitor</h4>
+          <p>Built as something other agents call. Entries stay yours; the exit layer is shared infrastructure.</p>
+        </div>
+        <div class="why-card">
+          <h4>Allowance + atomic pull</h4>
+          <p>Not holding funds. Asking agents for custody doesn’t solve trust — it relocates it. Opt-in enrolment
+          and exact allowance keep permission with the owner.</p>
+        </div>
+        <div class="why-card">
+          <h4>Free evaluate · paid execute · fee from proceeds</h4>
+          <p>Our incentive and the caller’s outcome point the same direction: the completion fee cannot be
+          collected unless the swap lands.</p>
+        </div>
+        <div class="why-card">
+          <h4>Explainable router, not a black box</h4>
+          <p>“Reliability” as a claim is worthless without a log a person can read after the fact and see exactly
+          why a given exit went fast or guarded.</p>
         </div>
       </div>
     </div>
@@ -652,6 +702,7 @@ token.approve(executorAddress, positionSize);</code></pre>
         <div class="footer-col">
           <h5>Product</h5>
           <a href="#problems">Problems solved</a>
+          <a href="#why">Why this way</a>
           <a href="#how-it-works">How it works</a>
           <a href="#connect">Connect</a>
           <a href="#api">API reference</a>
