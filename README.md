@@ -70,22 +70,36 @@ npm run dev            # http://localhost:8787
 
 See [`exit-guard/DEPLOYMENT.md`](exit-guard/DEPLOYMENT.md) for contract deploy + live smoke.
 
-## Deploy (Railway)
+## Live public API
 
-1. Connect this GitHub repo to Railway (or `railway up` from `exit-guard/`).
-2. Set **root directory** to `exit-guard`.
-3. Configure variables (see `exit-guard/.env.example`):
+| | |
+|--|--|
+| **Base URL** | https://exit-guard.onrender.com |
+| **Health** | https://exit-guard.onrender.com/health |
+| **Dashboard** | https://dashboard.render.com/web/srv-d9tj8d3m8hqs73da4j10 |
+| **Host** | Render (free web service, Oregon) |
+
+```bash
+curl https://exit-guard.onrender.com/health
+```
+
+> Free Render services **spin down** after idle traffic. First request after idle can take ~30–60s.
+
+## Deploy (Render)
+
+Blueprint: [`render.yaml`](render.yaml) at repo root.
+
+1. Connect https://github.com/kazzysax/exit-guard in the Render dashboard, or use the CLI.
+2. Root directory: `exit-guard` · build: `npm ci && npm run build` · start: `npm start`.
+3. Secrets (set in Render env, never commit):
 
    - `KEEPERHUB_API_KEY`
    - `KEEPERHUB_WALLET_ADDRESS`
    - `EXECUTOR_ADDRESS`
-   - `BASE_RPC_URL` (prefer a dedicated RPC, not the public rate-limited endpoint)
-   - `X402_ENABLED=true`
-   - `X402_PAY_TO` (your USDC receiving address)
-   - `X402_CALL_PRICE_USDC=0.02`
-   - `X402_FACILITATOR_URL=https://facilitator.payai.network`
+   - `X402_PAY_TO`
+   - `BASE_RPC_URL` (prefer a dedicated RPC)
 
-4. Generate a public domain. Agents call `https://<your-domain>/v1/...`.
+4. Agents call `https://exit-guard.onrender.com/v1/...`.
 
 ## Security notes
 
