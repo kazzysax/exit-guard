@@ -1,6 +1,14 @@
 # Render Blueprint — https://render.com/docs/blueprint-spec
-# Deploys the Exit Guard API. Keep-alive: in-process 60s pings + GitHub Action (see .github/workflows).
+# API service + static marketing site (moved off Vercel).
 services:
+  # Marketing UI + /docs agent integration folder (was on Vercel; now Render static)
+  - type: web
+    name: exit-guard-site
+    runtime: static
+    rootDir: site
+    buildCommand: "true"
+    staticPublishPath: .
+
   - type: web
     name: exit-guard
     runtime: node

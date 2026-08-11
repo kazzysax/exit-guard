@@ -74,10 +74,11 @@ See [`exit-guard/DEPLOYMENT.md`](exit-guard/DEPLOYMENT.md) for contract deploy +
 
 | | |
 |--|--|
-| **Base URL** | https://exit-guard.onrender.com |
+| **API** | https://exit-guard.onrender.com |
 | **Health** | https://exit-guard.onrender.com/health |
-| **Dashboard** | https://dashboard.render.com/web/srv-d9tj8d3m8hqs73da4j10 |
-| **Host** | Render (free web service, Oregon) |
+| **Site (UI)** | https://exit-guard-site.onrender.com (or custom domain after deploy) |
+| **Agent docs** | `/docs/` on the site — how to add Exit Guard to an agent |
+| **Host** | Render (API + static site) |
 
 ```bash
 curl https://exit-guard.onrender.com/health
