@@ -12,6 +12,8 @@ import { buildThresholds, sqrtPriceX96ToHumanPrice } from "./priceMath.js";
 import { keeperhub } from "./keeperhub.js";
 
 const app = express();
+// Render / reverse proxies terminate TLS; needed for correct https:// resource URLs in x402
+app.set("trust proxy", 1);
 app.use(express.json());
 
 /**

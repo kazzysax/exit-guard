@@ -106,10 +106,13 @@ async function main() {
       JSON.stringify(res.body)
     );
     // USDC has 6 decimals: $0.02 → 20000 atomic units (not the human string "0.02")
+    const amt = res.body.accepts?.[0]?.amount ?? res.body.accepts?.[0]?.maxAmountRequired;
+    check("402 amount is atomic USDC units", amt === "20000", `got ${amt}`);
+    check("402 is x402 v2 (KeeperHub wallet)", res.body.x402Version === 2, `v=${res.body.x402Version}`);
     check(
-      "402 amount is atomic USDC units",
-      res.body.accepts?.[0]?.maxAmountRequired === "20000",
-      `got ${res.body.accepts?.[0]?.maxAmountRequired}`
+      "402 resource.url present for wallet parsers",
+      typeof res.body.resource?.url === "string" && res.body.resource.url.length > 0,
+      JSON.stringify(res.body.resource)
     );
     check(
       "402 includes PAYMENT-REQUIRED header for agent wallets",
