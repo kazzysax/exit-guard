@@ -194,6 +194,27 @@
   .trust-item h4{margin:0 0 8px; font-size:14.5px; font-family:var(--mono); color:var(--ink);}
   .trust-item p{margin:0; font-size:13.5px;}
 
+  /* ---------- problems solved ---------- */
+  .problem-grid{
+    display:grid; grid-template-columns:repeat(2,1fr); gap:22px; margin-top:40px;
+  }
+  @media (max-width:760px){ .problem-grid{grid-template-columns:1fr;} }
+  .problem-card{
+    background:var(--card); border:1.5px solid var(--ink); border-radius:8px;
+    box-shadow:var(--shadow); padding:22px 22px 20px; display:flex; flex-direction:column; gap:12px;
+  }
+  .problem-card .label{
+    font-family:var(--mono); font-size:11.5px; letter-spacing:.1em; text-transform:uppercase;
+    color:var(--accent); margin:0;
+  }
+  .problem-card h3{margin:0; font-size:18px; line-height:1.25; letter-spacing:-.02em;}
+  .problem-card p{margin:0; font-size:14.5px;}
+  .problem-card .solves{
+    margin-top:auto; padding-top:12px; border-top:1px solid var(--border);
+    font-family:var(--mono); font-size:12.5px; color:var(--ink-soft);
+  }
+  .problem-card .solves b{color:var(--ink);}
+
   /* ---------- divider ---------- */
   .divider{border:none; border-top:1px solid var(--border); margin:0;}
 
@@ -214,6 +235,7 @@
 <header class="nav">
   <div class="nav-inner">
     <nav class="nav-links">
+      <a href="#problems">Problems solved</a>
       <a href="#how-it-works">How it works</a>
       <a href="#connect">Connect</a>
       <a href="#api">API</a>
@@ -272,6 +294,68 @@ curl -X POST $HOST/v1/positions/pos_7f2c/exit
     <span class="tok-key">"transactionHash"</span>: <span class="tok-str">"0x8f2e…"</span>
   }
 }</code></pre>
+      </div>
+    </div>
+  </section>
+
+  <hr class="divider" />
+
+  <!-- ================= PROBLEMS SOLVED ================= -->
+  <section id="problems">
+    <div class="wrap">
+      <p class="tag"><span class="bracket">◄</span> PROBLEMS SOLVED <span class="bracket">►</span></p>
+      <h2>What breaks without an exit layer — and what Exit Guard fixes.</h2>
+      <p class="lead">Agents are great at entering. The market is worst when they need to leave.
+      These are the concrete failure modes this model is built to remove.</p>
+
+      <div class="problem-grid">
+        <div class="problem-card">
+          <p class="label">Problem</p>
+          <h3>No dedicated exit path</h3>
+          <p>Most agent stacks wire entries carefully and leave exits as “just send a swap when it feels bad.”
+          That falls apart under stress: no rule engine, no readiness check, no structured outcome.</p>
+          <p class="solves"><b>Solved by:</b> position + stop/target rules, free evaluate, paid exit only when breached.</p>
+        </div>
+
+        <div class="problem-card">
+          <p class="label">Problem</p>
+          <h3>Hot-key sells fail when it matters</h3>
+          <p>Stuck nonces, underpriced gas, public mempool, or a hung wallet process — exactly during a crash
+          or rug — leave the position open while the agent “retries” blindly.</p>
+          <p class="solves"><b>Solved by:</b> KeeperHub execution with smart gas, retries, private routing, and bounded polling.</p>
+        </div>
+
+        <div class="problem-card">
+          <p class="label">Problem</p>
+          <h3>Custodial or multi-step fund flows</h3>
+          <p>Bridges that park tokens in a bot wallet, multi-tx “approve then swap then send” flows, or
+          intermediate vaults create windows where funds are at rest and trust is required.</p>
+          <p class="solves"><b>Solved by:</b> atomic pull → Uniswap swap → fee → return in one executor transaction.</p>
+        </div>
+
+        <div class="problem-card">
+          <p class="label">Problem</p>
+          <h3>Paying for checks that never trade</h3>
+          <p>If every price check is a paid API or onchain read-through-write path, agents either overspend
+          or under-monitor. False economy leads to delayed exits.</p>
+          <p class="solves"><b>Solved by:</b> free evaluate forever; x402 only on <code>/exit</code>; onchain fee only if the swap lands.</p>
+        </div>
+
+        <div class="problem-card">
+          <p class="label">Problem</p>
+          <h3>Double-sells and silent reverts</h3>
+          <p>Timeouts, agent retries, and honeypot tokens create either two sells or a gas-burning revert
+          with no structured reason the agent can act on.</p>
+          <p class="solves"><b>Solved by:</b> simulate-first, idempotency keys, readiness (enrolled/allowance/balance), structured receipts.</p>
+        </div>
+
+        <div class="problem-card">
+          <p class="label">Problem</p>
+          <h3>Sandwich / hostile pool conditions</h3>
+          <p>Large notionals, thin liquidity, or spiking base fee turn a “simple” exit into extraction.
+          A single static gas setting does not adapt.</p>
+          <p class="solves"><b>Solved by:</b> weighted router (fast vs guarded) with logged reasons — not vibes.</p>
+        </div>
       </div>
     </div>
   </section>
@@ -567,6 +651,7 @@ token.approve(executorAddress, positionSize);</code></pre>
       <div class="footer-cols">
         <div class="footer-col">
           <h5>Product</h5>
+          <a href="#problems">Problems solved</a>
           <a href="#how-it-works">How it works</a>
           <a href="#connect">Connect</a>
           <a href="#api">API reference</a>
