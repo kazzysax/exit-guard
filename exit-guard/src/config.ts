@@ -31,6 +31,8 @@ export const config = {
   x402FacilitatorUrl:
     process.env.X402_FACILITATOR_URL ?? "https://facilitator.payai.network",
   x402Enabled: process.env.X402_ENABLED !== "false",
+  /** Shared secret: KeeperHub marketplace workflows skip Exit Guard's own x402 */
+  serviceKey: (process.env.EXIT_GUARD_SERVICE_KEY ?? "").trim(),
 
   // Router thresholds
   router: {

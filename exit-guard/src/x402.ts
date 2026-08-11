@@ -255,6 +255,18 @@ export function requirePayment() {
       return next();
     }
 
+    // KeeperHub marketplace workflows pay via KH x402, then call us with this key
+    // so agents are not charged twice (marketplace + API).
+    const serviceKey = (process.env.EXIT_GUARD_SERVICE_KEY ?? "").trim();
+    const provided =
+      req.header("X-Exit-Guard-Key") ??
+      req.header("x-exit-guard-key") ??
+      "";
+    if (serviceKey && provided && provided === serviceKey) {
+      (req as Request & { payer?: string }).payer = "keeperhub-marketplace";
+      return next();
+    }
+
     if (!resolvePayTo()) {
       res.status(503).json({
         error:
